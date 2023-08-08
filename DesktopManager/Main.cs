@@ -9,10 +9,12 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using FileFolder;
+using MaterialSkin;
+using MaterialSkin.Controls;
 
 namespace DesktopManager
 {
-    public partial class Main : Form
+    public partial class Main : MaterialForm
     {
         string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         string[] files;
@@ -21,6 +23,11 @@ namespace DesktopManager
         public Main()
         {
             InitializeComponent();
+
+            var materialSkinManager = MaterialSkinManager.Instance;
+            materialSkinManager.AddFormToManage(this);
+            materialSkinManager.Theme = MaterialSkinManager.Themes.LIGHT;
+            materialSkinManager.ColorScheme = new ColorScheme(Primary.BlueGrey800, Primary.BlueGrey900, Primary.BlueGrey500, Accent.LightBlue200, TextShade.WHITE);
         }
 
         private void Main_Load(object sender, EventArgs e)
@@ -33,13 +40,15 @@ namespace DesktopManager
                 if (!file.Contains("desktop.ini"))
                 {
                 }
-
             }
 
             foreach (string dir in directories)
             {
+                DirectoryInfo dirInfo = new DirectoryInfo(dir);
                 FileFolderItem item = new FileFolderItem();
-                FolderFileList.Items.Add(item);
+                item.Text = dirInfo.Name;
+                item.Picture = global::DesktopManager.Properties.Resources.dir;
+                MainList.Items.Add(item);
             }
         }
     }
