@@ -10,10 +10,21 @@ using static System.Windows.Forms.ListView;
 
 namespace FileFolder
 {
+    public class FileFolderItemEventArgs : EventArgs
+    {
+        public FileFolderItem Item { get; private set; }
+
+        public FileFolderItemEventArgs(FileFolderItem item)
+        {
+            Item = item;
+        }
+    }
+
     [ToolboxItem(true)]
     [ToolboxBitmap(typeof(FileFolderItem))]
     public class FileFolderItem : Panel
     {
+        public string Path { get; set; }
         private Label label { get; set; }
         private PictureBox pictureBox { get; set; }
         private string _text;
@@ -32,7 +43,6 @@ namespace FileFolder
                 }
             }
         }
-
         [Browsable(true)]
         public Image Picture
         {
@@ -46,7 +56,7 @@ namespace FileFolder
                 }
             }
         }
-
+        public event EventHandler<FileFolderItemEventArgs> OnItemDoubleClicked;
         public FileFolderItem()
         {
             label = new Label();
@@ -59,6 +69,7 @@ namespace FileFolder
 
             Panel labpan = new Panel();
             Panel picpan = new Panel();
+            picpan.Height = pictureBox.Height;
             labpan.Controls.Add(label);
             picpan.Controls.Add(pictureBox);
             picpan.Dock = DockStyle.Top;
@@ -72,27 +83,38 @@ namespace FileFolder
             this.MouseLeave += new EventHandler(FileFolderItem_MouseLeave);
             label.MouseLeave += new EventHandler(FileFolderItem_MouseLeave);
             pictureBox.MouseLeave += new EventHandler(FileFolderItem_MouseLeave);
+
+            this.DoubleClick += new EventHandler(FileFolderItem_DoubleClick);
+            label.DoubleClick += new EventHandler(FileFolderItem_DoubleClick);
+            pictureBox.DoubleClick += new EventHandler(FileFolderItem_DoubleClick);
         }
+        private void FileFolderItem_DoubleClick(object sender, EventArgs e)
+        {
+            OnItemDoubleClicked?.Invoke(this, new FileFolderItemEventArgs(this));
+        }
+
+
         private void FileFolderItem_MouseEnter(object sender, EventArgs e)
         {
             Color parentColor = this.Parent.BackColor;
-            int fadeAmount = 1;
+            int fadeAmount = 2;
             this.BackColor = ControlPaint.Light(parentColor, fadeAmount);
             this.Cursor = Cursors.Hand;
         }
 
         private void FileFolderItem_MouseLeave(object sender, EventArgs e)
         {
-
-            this.BackColor = this.Parent.BackColor;
+            if (this.Parent != null)
+            {
+                this.BackColor = this.Parent.BackColor;
+            }
             this.Cursor = Cursors.Default;
         }
-
-
     }
     public class FileFolderCollection : IEnumerable<FileFolderItem>
     {
         public event EventHandler ItemChanged;
+        public event EventHandler<FileFolderItemEventArgs> ItemDoubleClicked;
 
         public FileFolderCollection()
         {
@@ -100,9 +122,15 @@ namespace FileFolder
         }
 
         private List<FileFolderItem> _items = new List<FileFolderItem>();
+        private void Item_DoubleClicked(object sender, FileFolderItemEventArgs e)
+        {
+            FileFolderItem item = e.Item;
+            ItemDoubleClicked?.Invoke(this, e);
+        }
 
         public void Add(FileFolderItem item)
         {
+            item.OnItemDoubleClicked += Item_DoubleClicked;
             this._items.Add(item);
             ItemChanged?.Invoke(this, EventArgs.Empty);
 
@@ -143,20 +171,27 @@ namespace FileFolder
         private int RowCount { get; set; }
         private int RowMaxCount { get; set; }
         public FileFolderCollection Items { get; }
+
+        public event EventHandler<FileFolderItemEventArgs> ItemDoubleClicked;
         public FileFolderListView()
         {
             RowX = 0;
             RowY = 0;
             RowCount = 0;
-            RowWidth = 100;
-            RowHeight = 165;
+            RowWidth = 95;
+            RowHeight = 125;
 
             Items = new FileFolderCollection();
             Items.ItemChanged += HandleItemChanged;
+            Items.ItemDoubleClicked += HandleItemClicked;
 
             this.AutoScroll = true;
             this.HorizontalScroll.Enabled = false;
-
+        }
+        private void HandleItemClicked(object sender, FileFolderItemEventArgs e)
+        {
+            FileFolderItem item = e.Item;
+            ItemDoubleClicked?.Invoke(this, new FileFolderItemEventArgs(item));
         }
         private void HandleItemChanged(object sender, EventArgs e)
         {
