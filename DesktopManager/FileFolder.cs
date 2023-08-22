@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using static System.Windows.Forms.ListView;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace FileFolder
 {
@@ -39,7 +40,7 @@ namespace FileFolder
             if (this.Parent != null)
             {
                 Color parentColor = this.Parent.BackColor;
-                int fadeAmount = 2;
+                float fadeAmount = (float)1.3;
                 this.BackColor = ControlPaint.Light(parentColor, fadeAmount);
                 this.Cursor = Cursors.Hand;
             }
@@ -61,7 +62,34 @@ namespace FileFolder
         {
             // Get the clicked item
             ToolStripItem clickedItem = e.ClickedItem;
+            if (clickedItem.Text == "Copy")
+            {
+                if (File.Exists(this.Path))
+                {
+                    string[] splipted_path = Path.Split(new string[] { @"\" }, StringSplitOptions.None);
+                    string last_part_of_split = splipted_path[splipted_path.Length - 1];
+                    string simple_path = Path.Replace($@"\{last_part_of_split}", null);
 
+                    File.Copy(Path, GetValidCopyPath(simple_path,last_part_of_split,"File"));
+                    this.ItemsChanges?.Invoke(this, EventArgs.Empty);
+                }
+                else
+                {
+                    if (Directory.Exists(Path))
+                    {
+                        string[] splipted_path = Path.Split(new string[] { @"\" }, StringSplitOptions.None);
+                        string last_part_of_split = splipted_path[splipted_path.Length - 1];
+                        string simple_path = Path.Replace($@"\{last_part_of_split}", null);
+                        string new_path = GetValidCopyPath(simple_path, last_part_of_split, "Directory");
+                        CopyDirectory(this.Path, new_path);
+                        this.ItemsChanges?.Invoke(this, EventArgs.Empty);
+                    }
+                    else
+                    {
+                        MessageBox.Show($"The path {Path} was not found !!!", "Warning not found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+            }
             if (clickedItem.Text == "Rename")
             {
                 new Popup("Rename", this.Path).ShowDialog();
@@ -94,7 +122,39 @@ namespace FileFolder
             // Check if the dragged item is a panel
             if (e.Data.GetDataPresent(typeof(FileFolderItem)))
             {
-                e.Effect = DragDropEffects.Move; // Allow the drop
+                var item = (FileFolderItem)e.Data.GetData(typeof(FileFolderItem));
+                var path = item.Path;
+                if (File.Exists(path))
+                {
+                    if(Directory.Exists(this.Path))
+                    {
+                        e.Effect = DragDropEffects.Move;
+                    }
+                    else
+                    {
+                        e.Effect = DragDropEffects.None;
+                    }
+                    
+                }
+                else
+                {
+                    if (Directory.Exists(path))
+                    {
+                        if (Directory.Exists(this.Path))
+                        {
+                            e.Effect = DragDropEffects.Move;
+                        }
+                        else
+                        {
+                            e.Effect = DragDropEffects.None;
+                        }
+                    }
+                    else
+                    {
+                        e.Effect = DragDropEffects.None;
+                    }
+                }
+                
             }
             else
             {
@@ -173,8 +233,17 @@ namespace FileFolder
         public FileFolderItem()
         {
             //Create Context Menu
-            _ContextMenu = new ContextMenuStrip();
+            if (typeof(MaterialSkin.Controls.MaterialForm) != null)
+            {
+                _ContextMenu = new MaterialContextMenuStrip();
+            }
+            else
+            {
+                _ContextMenu = new ContextMenuStrip();
+            }
+            
             _ContextMenu.Items.Add("Rename");
+            _ContextMenu.Items.Add("Copy");
             _ContextMenu.Items.Add("Delete");
             _ContextMenu.ItemClicked += contextMenuStrip_ItemClicked;
             this.ContextMenuStrip = _ContextMenu;
@@ -219,6 +288,76 @@ namespace FileFolder
         // Public methods
 
         // Private functions
+        public static void CopyDirectory(string sourceDir, string destDir)
+        {
+            // Create destination directory if it doesn't exist
+            if (!Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            // Copy all files in the source directory
+            foreach (string file in Directory.GetFiles(sourceDir))
+            {
+                string destFile = System.IO.Path.Combine(destDir, System.IO.Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
+
+            // Recursively copy all subdirectories
+            foreach (string subDir in Directory.GetDirectories(sourceDir))
+            {
+                string destSubDir = System.IO.Path.Combine(destDir, System.IO.Path.GetFileName(subDir));
+                CopyDirectory(subDir, destSubDir);
+            }
+        }
+
+        private string GetValidCopyPath(string path, string current_name,string type)
+        {
+            string original = $@"{path}\{current_name}"; ;
+            string copy_path = $@"{path}\{current_name}";
+            bool valid = false;
+            int count = 1;
+            do
+            {
+                if (type.Contains("File"))
+                {
+                    if (!File.Exists(copy_path))
+                    {
+                        valid = true;
+                    }
+                    else
+                    {
+                        valid = false;
+                        if (copy_path.Contains("."))
+                        {
+                            copy_path = original.Split('.')[0] + string.Concat(count) + "." + original.Split('.')[1];
+                        }
+                        else
+                        {
+                            copy_path = original + string.Concat(count);
+                            
+                        }
+                        count++;
+                    }
+                }
+                else
+                {
+                    if (!Directory.Exists(copy_path))
+                    {
+                        valid = true;
+                    }
+                    else
+                    {
+                        valid = false;
+                        copy_path = original + string.Concat(count);
+                        count++;
+                    }
+                }
+            } 
+            while (valid != true);
+
+            return copy_path;
+        }
     }
 
     // Custom collection class for managing file/folder items

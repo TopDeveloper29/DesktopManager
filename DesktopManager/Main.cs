@@ -1,26 +1,54 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using FileFolder;
+﻿using FileFolder;
 using MaterialSkin;
 using MaterialSkin.Controls;
+using Microsoft.Win32;
+using System;
+using System.Drawing;
+using System.IO;
+using System.Windows.Forms;
 
 namespace DesktopManager
 {
+    public static class SystemThemeDetector
+    {
+        public static bool IsDarkModeEnabled()
+        {
+            try
+            {
+                // Open the registry key that stores the current theme
+                using (var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+                {
+                    // Check the value of the "AppsUseLightTheme" key
+                    if (key != null && key.GetValue("AppsUseLightTheme") is int lightThemeValue)
+                    {
+                        return lightThemeValue == 0;
+                    }
+                }
+            }
+            catch { }
+
+            // Default to light theme if we couldn't detect the system theme
+            return false;
+        }
+    }
     public partial class Main : MaterialForm
     {
         // internal variable
         string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         string[] files;
         string[] directories = new string[] { };
-        string current_path = "";
+        string _current_path = "";
+        private string current_path
+        {
+            get { return _current_path; }
+            set
+            {
+                string temp_path = value.Replace(desktopPath, "HOME").Replace("\\", "/");
+                if (temp_path.Length < 1) { path_box.Text = "HOME"; } else { path_box.Text = temp_path; }
+                _current_path = value;
+
+            }
+        }
 
         // Event
         private void MainList_ItemDoubleClicked(object sender, FileFolderItemEventArgs e)
@@ -165,7 +193,7 @@ namespace DesktopManager
             }
         }
 
-        
+
 
         //constructor
         public Main()
@@ -174,9 +202,16 @@ namespace DesktopManager
 
             var materialSkinManager = MaterialSkinManager.Instance;
             materialSkinManager.AddFormToManage(this);
-            materialSkinManager.Theme = MaterialSkinManager.Themes.LIGHT;
-            materialSkinManager.ColorScheme = new ColorScheme(Primary.BlueGrey800, Primary.BlueGrey900, Primary.BlueGrey500, Accent.LightBlue200, TextShade.WHITE);
 
+            materialSkinManager.ColorScheme = new ColorScheme(Primary.Grey300, Primary.Grey500, Primary.BlueGrey500, Accent.LightBlue200, TextShade.BLACK);
+            if (SystemThemeDetector.IsDarkModeEnabled())
+            {
+                materialSkinManager.Theme = MaterialSkinManager.Themes.DARK;
+            }
+            else
+            {
+                materialSkinManager.Theme = MaterialSkinManager.Themes.LIGHT;
+            }
             MainList.ItemDoubleClicked += MainList_ItemDoubleClicked;
             MainList.ItemsChanged += MainList_ItemChanged;
         }
